@@ -1,0 +1,135 @@
+version: '3.8'
+services:
+  postgres_source:
+    image: postgres:13
+    container_name: postgres_source
+    environment:
+      POSTGRES_DB: source_db
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - postgres_source_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5432"
+    networks:
+      - airflow_network
+
+  postgres_target:
+    image: postgres:13
+    container_name: postgres_target
+    environment:
+      POSTGRES_DB: target_db
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - postgres_target_data:/var/lib/postgresql/data
+    ports:
+      - "5434:5432"
+    networks:
+      - airflow_network
+
+  airflow_db:
+    image: postgres:13
+    container_name: airflow_db
+    environment:
+      POSTGRES_DB: airflow_db
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow_db_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
+    networks:
+      - airflow_network
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - airflow_network
+
+  webserver:
+    image: apache/airflow:2.6.3
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db:5432/airflow_db
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow_db:5432/airflow_db
+    depends_on:
+      - airflow_db
+      - redis
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "
+      pip install psycopg2-binary &&
+      airflow db init &&
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
+      airflow webserver
+      "
+    networks:
+      - airflow_network
+
+  scheduler:
+    image: apache/airflow:2.6.3
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db:5432/airflow_db
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow_db:5432/airflow_db
+    depends_on:
+      - airflow_db
+      - redis
+      - webserver
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - airflow_logs:/opt/airflow/logs
+    command: >
+      bash -c "
+      pip install psycopg2-binary &&
+      airflow scheduler
+      "
+    networks:
+      - airflow_network
+
+  worker:
+    image: apache/airflow:2.6.3
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow_db:5432/airflow_db
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow_db:5432/airflow_db
+    depends_on:
+      - airflow_db
+      - redis
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+      - airflow_logs:/opt/airflow/logs
+    command: >
+      bash -c "
+      pip install psycopg2-binary &&
+      airflow celery worker
+      "
+    networks:
+      - airflow_network
+
+volumes:
+  postgres_source_data:
+  postgres_target_data:
+  airflow_db_data:
+  airflow_logs:
+
+networks:
+  airflow_network:
