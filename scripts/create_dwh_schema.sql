@@ -1,20 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS dwh;
 
-CREATE TABLE IF NOT EXISTS dwh.fact_lessons (
-    id INTEGER PRIMARY KEY,
-    title VARCHAR(255),
-    description TEXT,
-    start_at TIMESTAMP,
-    end_at TIMESTAMP,
-    homework_url VARCHAR(500),
-    teacher_id INTEGER,
-    stream_module_id INTEGER,
-    stream_id INTEGER,
-    course_id INTEGER,
-    online_lesson_join_url VARCHAR(255),
-    online_lesson_recording_url VARCHAR(255)
-);
-
 CREATE TABLE IF NOT EXISTS dwh.dim_stream (
     id INTEGER PRIMARY KEY,
     name VARCHAR(255),
@@ -39,4 +24,23 @@ CREATE TABLE IF NOT EXISTS dwh.dim_module (
 
 CREATE TABLE IF NOT EXISTS dwh.dim_teacher (
     id INTEGER PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS dwh.fact_lessons (
+    id INTEGER PRIMARY KEY,
+    title VARCHAR(255),
+    description TEXT,
+    start_at TIMESTAMP,
+    end_at TIMESTAMP,
+    homework_url VARCHAR(500),
+    teacher_id INTEGER,
+    stream_module_id INTEGER,
+    stream_id INTEGER,
+    course_id INTEGER,
+    online_lesson_join_url VARCHAR(255),
+    online_lesson_recording_url VARCHAR(255),
+    FOREIGN KEY (teacher_id) REFERENCES dwh.dim_teacher(id),
+    FOREIGN KEY (stream_id) REFERENCES dwh.dim_stream(id),
+    FOREIGN KEY (course_id) REFERENCES dwh.dim_course(id),
+    FOREIGN KEY (stream_module_id) REFERENCES dwh.dim_module(id)
 );
